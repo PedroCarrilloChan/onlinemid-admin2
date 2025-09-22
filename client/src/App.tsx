@@ -8,6 +8,9 @@ interface User {
   id: string;
   email: string;
   createdAt: string;
+  nombre?: string; // Campos esperados de la API original
+  email_contacto?: string;
+  fecha_creacion?: string;
 }
 
 function App() {
@@ -24,13 +27,14 @@ function App() {
       try {
         const response = await fetch('/api/customers');
         if (!response.ok) {
-          throw new Error('La respuesta de la red no fue exitosa');
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data: User[] = await response.json();
-        setCustomers(data); // Guardamos los datos en el estado
-      } catch (err) {
-        setError('No se pudieron cargar los clientes.');
-        console.error(err);
+        const data = await response.json();
+        console.log('API Response:', data); // Para debug
+        setCustomers(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+        setCustomers([]); // Set empty array on error
       } finally {
         setLoading(false); // Dejamos de cargar, ya sea con éxito o con error
       }
@@ -67,7 +71,7 @@ function App() {
                 <td className="py-3 px-4">{customer.id}</td>
                 <td className="py-3 px-4">{customer.nombre}</td>
                 <td className="py-3 px-4">{customer.email_contacto}</td>
-                <td className="py-3 px-4">{new Date(customer.fecha_creacion).toLocaleDateString()}</td>
+                <td className="py-3 px-4">{new Date(customer.fecha_creacion!).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
