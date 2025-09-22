@@ -1,185 +1,80 @@
-import { getStorage } from '../shared/storage';
-import { insertUserSchema } from '../../shared/schema';
-import { ZodError } from 'zod';
+import { Env } from '../../types'; // Ajusta la ruta a tus tipos si es necesario
 
-// Types for Cloudflare Pages Functions
-interface CloudflareEnvironment {
-  // Add environment variables here
-  DATABASE_URL?: string;
-  [key: string]: unknown;
-}
-
-interface CloudflareExecutionContext {
-  request: Request;
-  env: CloudflareEnvironment;
-  params: {
-    path: string;
-  };
-  next: () => Promise<Response>;
-  waitUntil: (promise: Promise<any>) => void;
-}
-
-
-// Utility functions for responses (CORS handled in middleware)
-const jsonResponse = (data: any, status = 200) => {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-const errorResponse = (message: string, status = 500) => {
-  return jsonResponse({ error: message }, status);
-};
+export const onRequest: PagesFunction<Env> = async (context) => {
+  const { request, env, params } = context;
+  // params.path será un array. Ej: para /customers/123, path es ['123']
+  // Para /customers, path estará vacío o será undefined.
+  const path = params.path as string[] || [];
+  const id = path[0];
 
-// Enhanced router interface to include parameter extraction
-interface Route {
-  method: string;
-  path: string;
-  handler: (context: CloudflareExecutionContext, params: Record<string, string>) => Promise<Response>;
-}
-
-// Routes array - actual API routes with parameterized paths
-const routes: Route[] = [
-  // Get user by ID: GET /api/users/:id
-  {
-    method: 'GET',
-    path: '/api/users/:id',
-    handler: async (context, params) => {
-      const userId = params.id;
-      const storage = getStorage(context.env);
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return errorResponse('User not found', 404);
-      }
-      
-      return jsonResponse(user);
-    }
-  },
-  
-  // Get user by username: GET /api/users/username/:username
-  {
-    method: 'GET',
-    path: '/api/users/username/:username',
-    handler: async (context, params) => {
-      const username = params.username;
-      const storage = getStorage(context.env);
-      const user = await storage.getUserByUsername(username);
-      
-      if (!user) {
-        return errorResponse('User not found', 404);
-      }
-      
-      return jsonResponse(user);
-    }
-  },
-  
-  // Create new user: POST /api/users
-  {
-    method: 'POST',
-    path: '/api/users',
-    handler: async (context, params) => {
-      try {
-        const body = await context.request.json();
-        
-        // Validate request body
-        const validatedData = insertUserSchema.parse(body);
-        
-        const storage = getStorage(context.env);
-        
-        // Create new user (storage handles uniqueness checking)
-        const newUser = await storage.createUser(validatedData);
-        
-        return jsonResponse(newUser, 201);
-        
-      } catch (error) {
-        if (error instanceof ZodError) {
-          return errorResponse('Invalid request data', 400);
-        }
-        
-        if (error instanceof Error && error.message === 'Username already exists') {
-          return errorResponse('Username already exists', 409);
-        }
-        
-        throw error; // Re-throw for general error handling
-      }
-    }
+  // Manejo de CORS
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
-];
-
-// Enhanced path matcher that extracts parameters
-function matchRoute(method: string, path: string): { route: Route; params: Record<string, string> } | null {
-  for (const route of routes) {
-    if (route.method !== method) continue;
-    
-    // Handle exact matches
-    if (route.path === path) {
-      return { route, params: {} };
-    }
-    
-    // Handle parameterized routes
-    const routeSegments = route.path.split('/').filter(Boolean);
-    const pathSegments = path.split('/').filter(Boolean);
-    
-    // Different segment counts means no match
-    if (routeSegments.length !== pathSegments.length) continue;
-    
-    // Check each segment and extract parameters
-    const params: Record<string, string> = {};
-    let matches = true;
-    
-    for (let i = 0; i < routeSegments.length; i++) {
-      const routeSegment = routeSegments[i];
-      const pathSegment = pathSegments[i];
-      
-      // If route segment is a parameter (starts with :), extract it
-      if (routeSegment.startsWith(':')) {
-        const paramName = routeSegment.slice(1);
-        params[paramName] = pathSegment;
-      } else if (routeSegment !== pathSegment) {
-        // Otherwise, it must be an exact match
-        matches = false;
-        break;
-      }
-    }
-    
-    if (matches) {
-      return { route, params };
-    }
-  }
-  
-  return null;
-}
-
-// Main function handler for Cloudflare Pages
-export async function onRequest(context: CloudflareExecutionContext): Promise<Response> {
-  const { request } = context;
-  const method = request.method;
-  
-  // Get the path from the URL directly (more reliable than params.path)
-  const apiPath = new URL(request.url).pathname;
 
   try {
-    // Find matching route and extract parameters
-    const match = matchRoute(method, apiPath);
-    
-    if (!match) {
-      return errorResponse(`Route not found: ${method} ${apiPath}`, 404);
+    // ---- RUTAS SIN ID (/api/customers) ----
+    if (!id) {
+      if (request.method === 'GET') {
+        const result = await env.DB.prepare('SELECT * FROM Clientes ORDER BY fecha_creacion DESC').all();
+        return new Response(JSON.stringify(result.results ?? []), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (request.method === 'POST') {
+        const body = await request.json<{ nombre?: string; email_contacto?: string }>();
+        if (!body.nombre || !body.email_contacto) throw new Error('Nombre y email son requeridos');
+
+        const now = new Date().toISOString();
+        const result = await env.DB.prepare(
+          'INSERT INTO Clientes (nombre, email_contacto, fecha_creacion) VALUES (?, ?, ?)'
+        ).bind(body.nombre, body.email_contacto, now).run();
+
+        return new Response(JSON.stringify({ id: result.meta.last_row_id, ...body, fecha_creacion: now }), {
+          status: 201,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
-    // Execute route handler with extracted parameters
-    return await match.route.handler(context, match.params);
-    
-  } catch (error) {
-    console.error('API Error:', error);
-    return errorResponse(
-      error instanceof Error ? error.message : 'Internal Server Error'
-    );
-  }
-}
+    // ---- RUTAS CON ID (/api/customers/123) ----
+    if (id) {
+      if (request.method === 'GET') {
+        const result = await env.DB.prepare('SELECT * FROM Clientes WHERE id = ?').bind(id).first();
+        if (!result) return new Response('Cliente no encontrado', { status: 404 });
+        return new Response(JSON.stringify(result), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+      }
 
-// Export the utilities for use in other files
-export { jsonResponse, errorResponse, type CloudflareExecutionContext, type CloudflareEnvironment };
+      if (request.method === 'PUT') {
+        const body = await request.json<{ nombre?: string; email_contacto?: string }>();
+        if (!body.nombre || !body.email_contacto) throw new Error('Nombre y email son requeridos');
+
+        await env.DB.prepare('UPDATE Clientes SET nombre = ?, email_contacto = ? WHERE id = ?')
+          .bind(body.nombre, body.email_contacto, id).run();
+
+        return new Response(JSON.stringify({ id, ...body }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+      }
+
+      if (request.method === 'DELETE') {
+        await env.DB.prepare('DELETE FROM Clientes WHERE id = ?').bind(id).run();
+        return new Response(null, { status: 204, headers: corsHeaders });
+      }
+    }
+
+    return new Response('Método no permitido', { status: 405, headers: corsHeaders });
+
+  } catch (error: any) {
+    console.error('Error en API de clientes:', error);
+    return new Response(JSON.stringify({ error: 'Error interno del servidor', details: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+};
