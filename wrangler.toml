@@ -1,6 +1,6 @@
 # Cloudflare Pages configuration
 name = "onlinemid-portal"
-compatibility_date = "2024-01-15"
+compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 # Pages configuration
@@ -13,14 +13,14 @@ output = "dist"
 [env.production.vars]
 NODE_ENV = "production"
 
-[env.preview.vars]  
+[env.preview.vars]
 NODE_ENV = "preview"
 
 # D1 Database bindings
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "onlinemid-portal-db"
-database_id = "your-d1-database-id"
+database_id = "your-database-id"
 
 [[env.preview.d1_databases]]
 binding = "DB"
