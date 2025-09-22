@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// ../.wrangler/tmp/bundle-PNRNOZ/checked-fetch.js
+// ../.wrangler/tmp/bundle-74wd5j/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -410,27 +410,8 @@ var onRequestGet2 = /* @__PURE__ */ __name(async (context) => {
     }
     if (context.env.DB) {
       console.log("\u{1F4BE} Consultando base de datos D1...");
-      await context.env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS customers (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          email TEXT NOT NULL UNIQUE,
-          nombre TEXT NOT NULL,
-          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `).run();
-      const existingCustomers = await context.env.DB.prepare("SELECT COUNT(*) as count FROM customers").first();
-      if (existingCustomers.count === 0) {
-        console.log("\u{1F4DD} Insertando datos de ejemplo en customers...");
-        await context.env.DB.prepare(`
-          INSERT INTO customers (email, nombre) VALUES 
-          ('cliente1@example.com', 'Juan P\xE9rez'),
-          ('cliente2@example.com', 'Mar\xEDa Garc\xEDa'),
-          ('admin@example.com', 'Admin Sistema'),
-          ('test@example.com', 'Usuario Test'),
-          ('demo@example.com', 'Usuario Demo')
-        `).run();
-      }
-      const { results } = await context.env.DB.prepare("SELECT * FROM customers ORDER BY createdAt DESC").all();
+      console.log("\u{1F4BE} Consultando tabla Clientes existente...");
+      const { results } = await context.env.DB.prepare("SELECT * FROM Clientes ORDER BY fecha_creacion DESC").all();
       console.log(`\u2705 Obtenidos ${results.length} clientes de la base de datos`);
       return new Response(JSON.stringify(results), {
         status: 200,
@@ -478,11 +459,11 @@ var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
     }
     if (context.env.DB) {
       const result = await context.env.DB.prepare(`
-        INSERT INTO customers (email, nombre) VALUES (?, ?)
-      `).bind(email, nombre).run();
+        INSERT INTO Clientes (nombre, email_contacto) VALUES (?, ?)
+      `).bind(nombre, email).run();
       if (result.success) {
         const newCustomer = await context.env.DB.prepare(`
-          SELECT * FROM customers WHERE id = ?
+          SELECT * FROM Clientes WHERE id = ?
         `).bind(result.meta.last_row_id).first();
         return new Response(JSON.stringify({
           success: true,
@@ -8499,7 +8480,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-PNRNOZ/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-74wd5j/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -8531,7 +8512,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-PNRNOZ/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-74wd5j/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

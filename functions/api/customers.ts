@@ -42,33 +42,11 @@ export const onRequestGet = async (context: { env: Env }) => {
     if (context.env.DB) {
       console.log('💾 Consultando base de datos D1...');
       
-      // Crear tabla customers si no existe
-      await context.env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS customers (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          email TEXT NOT NULL UNIQUE,
-          nombre TEXT NOT NULL,
-          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `).run();
+      // Usar la tabla Clientes que ya existe
+      console.log('💾 Consultando tabla Clientes existente...');
 
-      // Verificar si hay datos, si no insertar algunos de ejemplo
-      const existingCustomers = await context.env.DB.prepare("SELECT COUNT(*) as count FROM customers").first();
-      
-      if (existingCustomers.count === 0) {
-        console.log('📝 Insertando datos de ejemplo en customers...');
-        await context.env.DB.prepare(`
-          INSERT INTO customers (email, nombre) VALUES 
-          ('cliente1@example.com', 'Juan Pérez'),
-          ('cliente2@example.com', 'María García'),
-          ('admin@example.com', 'Admin Sistema'),
-          ('test@example.com', 'Usuario Test'),
-          ('demo@example.com', 'Usuario Demo')
-        `).run();
-      }
-
-      // Obtener todos los customers
-      const { results } = await context.env.DB.prepare("SELECT * FROM customers ORDER BY createdAt DESC").all();
+      // Obtener todos los clientes de la tabla real
+      const { results } = await context.env.DB.prepare("SELECT * FROM Clientes ORDER BY fecha_creacion DESC").all();
       
       console.log(`✅ Obtenidos ${results.length} clientes de la base de datos`);
       
@@ -126,13 +104,13 @@ export const onRequestPost = async (context: { env: Env; request: Request }) => 
 
     if (context.env.DB) {
       const result = await context.env.DB.prepare(`
-        INSERT INTO customers (email, nombre) VALUES (?, ?)
-      `).bind(email, nombre).run();
+        INSERT INTO Clientes (nombre, email_contacto) VALUES (?, ?)
+      `).bind(nombre, email).run();
 
       if (result.success) {
         // Obtener el cliente recién creado
         const newCustomer = await context.env.DB.prepare(`
-          SELECT * FROM customers WHERE id = ?
+          SELECT * FROM Clientes WHERE id = ?
         `).bind(result.meta.last_row_id).first();
 
         return new Response(JSON.stringify({

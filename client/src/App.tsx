@@ -56,6 +56,7 @@ function App() {
           <thead className="bg-gray-100 border-b">
             <tr>
               <th className="text-left py-3 px-4 uppercase font-semibold text-sm">ID</th>
+              <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Nombre</th>
               <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Email</th>
               <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Fecha de Registro</th>
             </tr>
@@ -64,8 +65,9 @@ function App() {
             {customers.map((customer) => (
               <tr key={customer.id} className="border-b hover:bg-gray-50">
                 <td className="py-3 px-4">{customer.id}</td>
-                <td className="py-3 px-4">{customer.email}</td>
-                <td className="py-3 px-4">{new Date(customer.createdAt).toLocaleDateString()}</td>
+                <td className="py-3 px-4">{customer.nombre}</td>
+                <td className="py-3 px-4">{customer.email_contacto}</td>
+                <td className="py-3 px-4">{new Date(customer.fecha_creacion).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
