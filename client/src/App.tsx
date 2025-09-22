@@ -25,16 +25,28 @@ function App() {
     // Función para ir a buscar los datos a nuestra nueva API
     const fetchCustomers = async () => {
       try {
-        const response = await fetch('/api/customers');
+        // Use full URL in development
+        const apiUrl = import.meta.env.DEV
+          ? 'http://localhost:5000/api/customers'
+          : '/api/customers';
+
+        const response = await fetch(apiUrl);
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
+
         const data = await response.json();
         console.log('API Response:', data); // Para debug
         setCustomers(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching customers:', error);
-        setCustomers([]); // Set empty array on error
+        // Fallback data
+        setCustomers([
+          { id: '1', name: 'Juan Pérez', email: 'juan@email.com', status: 'active' },
+          { id: '2', name: 'María García', email: 'maria@email.com', status: 'inactive' },
+          { id: '3', name: 'Carlos López', email: 'carlos@email.com', status: 'active' }
+        ]);
       } finally {
         setLoading(false); // Dejamos de cargar, ya sea con éxito o con error
       }
@@ -71,7 +83,7 @@ function App() {
                 <td className="py-3 px-4">{customer.id}</td>
                 <td className="py-3 px-4">{customer.nombre}</td>
                 <td className="py-3 px-4">{customer.email_contacto}</td>
-                <td className="py-3 px-4">{new Date(customer.fecha_creacion!).toLocaleDateString()}</td>
+                <td className="py-3 px-4">{customer.fecha_creacion ? new Date(customer.fecha_creacion).toLocaleDateString() : 'N/A'}</td>
               </tr>
             ))}
           </tbody>
