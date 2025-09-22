@@ -16,13 +16,7 @@ export const onRequestGet = async (context) => {
     // Simular un pequeño delay como si fuera una DB real
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: MOCK_CUSTOMERS,
-      count: MOCK_CUSTOMERS.length,
-      environment: 'replit-development',
-      message: 'Datos mock para desarrollo'
-    }), {
+    return new Response(JSON.stringify(MOCK_CUSTOMERS), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
