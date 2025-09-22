@@ -4,6 +4,8 @@ import { Env } from '../types';
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   
+  console.log(`[API] ${request.method} ${request.url}`);
+  
   // Enable CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
