@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// ../.wrangler/tmp/bundle-m3Gtgy/checked-fetch.js
+// ../.wrangler/tmp/bundle-PNRNOZ/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -104,95 +104,6 @@ var onRequestGet = /* @__PURE__ */ __name(async (context) => {
     return new Response(JSON.stringify({ error: "Error interno del servidor" }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
-    });
-  }
-}, "onRequestGet");
-
-// api/customers.ts
-var MOCK_CUSTOMERS = [
-  { id: 1, email: "cliente1@example.com", nombre: "Juan P\xE9rez", createdAt: "2024-01-15T10:00:00Z" },
-  { id: 2, email: "cliente2@example.com", nombre: "Mar\xEDa Garc\xEDa", createdAt: "2024-01-16T11:00:00Z" },
-  { id: 3, email: "admin@example.com", nombre: "Admin Sistema", createdAt: "2024-01-17T12:00:00Z" },
-  { id: 4, email: "test@example.com", nombre: "Usuario Test", createdAt: "2024-01-18T13:00:00Z" },
-  { id: 5, email: "demo@example.com", nombre: "Usuario Demo", createdAt: "2024-01-19T14:00:00Z" }
-];
-var onRequestGet2 = /* @__PURE__ */ __name(async (context) => {
-  try {
-    console.log("\u{1F527} API /customers llamada - usando datos mock para Replit");
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    return new Response(JSON.stringify(MOCK_CUSTOMERS), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
-      }
-    });
-  } catch (error) {
-    console.error("\u274C Error en /api/customers:", error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: "Error al obtener los clientes",
-      message: error instanceof Error ? error.message : "Error desconocido",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString()
-    }), {
-      status: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      }
-    });
-  }
-}, "onRequestGet");
-var onRequestOptions = /* @__PURE__ */ __name(async () => {
-  return new Response(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
-    }
-  });
-}, "onRequestOptions");
-
-// api/debug.ts
-var onRequestGet3 = /* @__PURE__ */ __name(async (context) => {
-  try {
-    const debugInfo = {
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      environment: "Replit Development",
-      isReplit: !!process.env.REPL_ID,
-      nodeEnv: "undefined",
-      request: {
-        url: context.request?.url || "unknown",
-        method: context.request?.method || "unknown"
-      },
-      context: {
-        hasEnv: !!context.env,
-        hasParams: !!context.params,
-        hasData: !!context.data
-      },
-      message: "\u2705 API funcionando correctamente en Replit"
-    };
-    return new Response(JSON.stringify(debugInfo, null, 2), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({
-      error: "Error en debug endpoint",
-      message: error instanceof Error ? error.message : "Error desconocido",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString()
-    }, null, 2), {
-      status: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      }
     });
   }
 }, "onRequestGet");
@@ -473,6 +384,185 @@ function getStorage(env) {
   return new CloudflareMemStorage();
 }
 __name(getStorage, "getStorage");
+
+// api/customers.ts
+var onRequestGet2 = /* @__PURE__ */ __name(async (context) => {
+  try {
+    console.log("\u{1F527} API /customers llamada - conectando a base de datos real");
+    const storage = getStorage(context.env);
+    const result = await storage.getUser("demo-id");
+    if (!context.env?.DB && !context.env?.USERS_KV) {
+      console.log("\u26A0\uFE0F No hay DB configurada, usando datos de fallback");
+      const fallbackData = [
+        { id: 1, email: "cliente1@example.com", nombre: "Juan P\xE9rez", createdAt: "2024-01-15T10:00:00Z" },
+        { id: 2, email: "cliente2@example.com", nombre: "Mar\xEDa Garc\xEDa", createdAt: "2024-01-16T11:00:00Z" },
+        { id: 3, email: "admin@example.com", nombre: "Admin Sistema", createdAt: "2024-01-17T12:00:00Z" }
+      ];
+      return new Response(JSON.stringify(fallbackData), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        }
+      });
+    }
+    if (context.env.DB) {
+      console.log("\u{1F4BE} Consultando base de datos D1...");
+      await context.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS customers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT NOT NULL UNIQUE,
+          nombre TEXT NOT NULL,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+      const existingCustomers = await context.env.DB.prepare("SELECT COUNT(*) as count FROM customers").first();
+      if (existingCustomers.count === 0) {
+        console.log("\u{1F4DD} Insertando datos de ejemplo en customers...");
+        await context.env.DB.prepare(`
+          INSERT INTO customers (email, nombre) VALUES 
+          ('cliente1@example.com', 'Juan P\xE9rez'),
+          ('cliente2@example.com', 'Mar\xEDa Garc\xEDa'),
+          ('admin@example.com', 'Admin Sistema'),
+          ('test@example.com', 'Usuario Test'),
+          ('demo@example.com', 'Usuario Demo')
+        `).run();
+      }
+      const { results } = await context.env.DB.prepare("SELECT * FROM customers ORDER BY createdAt DESC").all();
+      console.log(`\u2705 Obtenidos ${results.length} clientes de la base de datos`);
+      return new Response(JSON.stringify(results), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        }
+      });
+    }
+    throw new Error("No se pudo conectar a ninguna base de datos");
+  } catch (error) {
+    console.error("\u274C Error en /api/customers:", error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: "Error al obtener los clientes",
+      message: error instanceof Error ? error.message : "Error desconocido",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      hasDB: !!context.env?.DB,
+      hasKV: !!context.env?.USERS_KV
+    }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
+  }
+}, "onRequestGet");
+var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
+  try {
+    const { email, nombre } = await context.request.json();
+    if (!email || !nombre) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Email y nombre son requeridos"
+      }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+    if (context.env.DB) {
+      const result = await context.env.DB.prepare(`
+        INSERT INTO customers (email, nombre) VALUES (?, ?)
+      `).bind(email, nombre).run();
+      if (result.success) {
+        const newCustomer = await context.env.DB.prepare(`
+          SELECT * FROM customers WHERE id = ?
+        `).bind(result.meta.last_row_id).first();
+        return new Response(JSON.stringify({
+          success: true,
+          data: newCustomer
+        }), {
+          status: 201,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          }
+        });
+      }
+    }
+    throw new Error("No se pudo crear el cliente");
+  } catch (error) {
+    console.error("\u274C Error creando cliente:", error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: "Error al crear cliente",
+      message: error instanceof Error ? error.message : "Error desconocido"
+    }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
+  }
+}, "onRequestPost");
+var onRequestOptions = /* @__PURE__ */ __name(async () => {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    }
+  });
+}, "onRequestOptions");
+
+// api/debug.ts
+var onRequestGet3 = /* @__PURE__ */ __name(async (context) => {
+  try {
+    const debugInfo = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      environment: "Replit Development",
+      isReplit: !!process.env.REPL_ID,
+      nodeEnv: "undefined",
+      request: {
+        url: context.request?.url || "unknown",
+        method: context.request?.method || "unknown"
+      },
+      context: {
+        hasEnv: !!context.env,
+        hasParams: !!context.params,
+        hasData: !!context.data
+      },
+      message: "\u2705 API funcionando correctamente en Replit"
+    };
+    return new Response(JSON.stringify(debugInfo, null, 2), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      error: "Error en debug endpoint",
+      message: error instanceof Error ? error.message : "Error desconocido",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    }, null, 2), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
+  }
+}, "onRequestGet");
 
 // ../node_modules/drizzle-orm/entity.js
 var entityKind = Symbol.for("drizzle:entityKind");
@@ -7893,6 +7983,13 @@ var routes = [
     modules: [onRequestOptions]
   },
   {
+    routePath: "/api/customers",
+    mountPath: "/api",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost2]
+  },
+  {
     routePath: "/api/debug",
     mountPath: "/api",
     method: "GET",
@@ -8402,7 +8499,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-m3Gtgy/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-PNRNOZ/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -8434,7 +8531,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-m3Gtgy/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-PNRNOZ/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

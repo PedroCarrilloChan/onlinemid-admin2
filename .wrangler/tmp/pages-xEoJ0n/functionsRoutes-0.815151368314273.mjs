@@ -2,6 +2,7 @@ import { onRequestPost as __api_auth_login_ts_onRequestPost } from "/home/runner
 import { onRequestGet as __api_public_content_ts_onRequestGet } from "/home/runner/workspace/functions/api/public/content.ts"
 import { onRequestGet as __api_customers_ts_onRequestGet } from "/home/runner/workspace/functions/api/customers.ts"
 import { onRequestOptions as __api_customers_ts_onRequestOptions } from "/home/runner/workspace/functions/api/customers.ts"
+import { onRequestPost as __api_customers_ts_onRequestPost } from "/home/runner/workspace/functions/api/customers.ts"
 import { onRequestGet as __api_debug_ts_onRequestGet } from "/home/runner/workspace/functions/api/debug.ts"
 import { onRequest as __api___path___ts_onRequest } from "/home/runner/workspace/functions/api/[[path]].ts"
 import { onRequest as ___middleware_ts_onRequest } from "/home/runner/workspace/functions/_middleware.ts"
@@ -34,6 +35,13 @@ export const routes = [
       method: "OPTIONS",
       middlewares: [],
       modules: [__api_customers_ts_onRequestOptions],
+    },
+  {
+      routePath: "/api/customers",
+      mountPath: "/api",
+      method: "POST",
+      middlewares: [],
+      modules: [__api_customers_ts_onRequestPost],
     },
   {
       routePath: "/api/debug",
