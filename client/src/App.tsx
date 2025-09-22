@@ -25,10 +25,8 @@ function App() {
     // Función para ir a buscar los datos a nuestra nueva API
     const fetchCustomers = async () => {
       try {
-        // Use full URL in development
-        const apiUrl = import.meta.env.DEV
-          ? 'http://localhost:5000/api/customers'
-          : '/api/customers';
+        // Use correct API endpoint for Cloudflare Pages
+        const apiUrl = '/api/customers';
 
         const response = await fetch(apiUrl);
 
