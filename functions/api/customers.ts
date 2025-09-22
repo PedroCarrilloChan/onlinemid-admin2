@@ -1,30 +1,90 @@
 // functions/api/customers.ts
-// Datos mock para desarrollo en Replit
-const MOCK_CUSTOMERS = [
-  { id: 1, email: 'cliente1@example.com', nombre: 'Juan Pérez', createdAt: '2024-01-15T10:00:00Z' },
-  { id: 2, email: 'cliente2@example.com', nombre: 'María García', createdAt: '2024-01-16T11:00:00Z' },
-  { id: 3, email: 'admin@example.com', nombre: 'Admin Sistema', createdAt: '2024-01-17T12:00:00Z' },
-  { id: 4, email: 'test@example.com', nombre: 'Usuario Test', createdAt: '2024-01-18T13:00:00Z' },
-  { id: 5, email: 'demo@example.com', nombre: 'Usuario Demo', createdAt: '2024-01-19T14:00:00Z' }
-];
+import { getStorage } from '../shared/storage';
 
-// Esta función maneja las peticiones GET
-export const onRequestGet = async (context) => {
+interface Env {
+  DB?: D1Database;
+  USERS_KV?: KVNamespace;
+  USERNAME_INDEX_KV?: KVNamespace;
+}
+
+// GET - Obtener todos los clientes
+export const onRequestGet = async (context: { env: Env }) => {
   try {
-    console.log('🔧 API /customers llamada - usando datos mock para Replit');
+    console.log('🔧 API /customers llamada - conectando a base de datos real');
 
-    // Simular un pequeño delay como si fuera una DB real
-    await new Promise(resolve => setTimeout(resolve, 100));
+    const storage = getStorage(context.env);
 
-    return new Response(JSON.stringify(MOCK_CUSTOMERS), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+    // Por ahora, como solo tenemos tabla de users, vamos a mostrar los usuarios
+    // En el futuro puedes crear una tabla customers separada
+    const result = await storage.getUser('demo-id'); // Esto es solo para probar la conexión
+
+    // Si no hay conexión a DB, usar datos de fallback
+    if (!context.env?.DB && !context.env?.USERS_KV) {
+      console.log('⚠️ No hay DB configurada, usando datos de fallback');
+      const fallbackData = [
+        { id: 1, email: 'cliente1@example.com', nombre: 'Juan Pérez', createdAt: '2024-01-15T10:00:00Z' },
+        { id: 2, email: 'cliente2@example.com', nombre: 'María García', createdAt: '2024-01-16T11:00:00Z' },
+        { id: 3, email: 'admin@example.com', nombre: 'Admin Sistema', createdAt: '2024-01-17T12:00:00Z' }
+      ];
+      
+      return new Response(JSON.stringify(fallbackData), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      });
+    }
+
+    // Si hay D1 disponible, intentar obtener datos reales
+    if (context.env.DB) {
+      console.log('💾 Consultando base de datos D1...');
+      
+      // Crear tabla customers si no existe
+      await context.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS customers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT NOT NULL UNIQUE,
+          nombre TEXT NOT NULL,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+
+      // Verificar si hay datos, si no insertar algunos de ejemplo
+      const existingCustomers = await context.env.DB.prepare("SELECT COUNT(*) as count FROM customers").first();
+      
+      if (existingCustomers.count === 0) {
+        console.log('📝 Insertando datos de ejemplo en customers...');
+        await context.env.DB.prepare(`
+          INSERT INTO customers (email, nombre) VALUES 
+          ('cliente1@example.com', 'Juan Pérez'),
+          ('cliente2@example.com', 'María García'),
+          ('admin@example.com', 'Admin Sistema'),
+          ('test@example.com', 'Usuario Test'),
+          ('demo@example.com', 'Usuario Demo')
+        `).run();
+      }
+
+      // Obtener todos los customers
+      const { results } = await context.env.DB.prepare("SELECT * FROM customers ORDER BY createdAt DESC").all();
+      
+      console.log(`✅ Obtenidos ${results.length} clientes de la base de datos`);
+      
+      return new Response(JSON.stringify(results), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      });
+    }
+
+    // Fallback si algo sale mal
+    throw new Error('No se pudo conectar a ninguna base de datos');
 
   } catch (error) {
     console.error('❌ Error en /api/customers:', error);
@@ -33,7 +93,69 @@ export const onRequestGet = async (context) => {
       success: false,
       error: 'Error al obtener los clientes',
       message: error instanceof Error ? error.message : 'Error desconocido',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      hasDB: !!context.env?.DB,
+      hasKV: !!context.env?.USERS_KV
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+};
+
+// POST - Crear nuevo cliente
+export const onRequestPost = async (context: { env: Env; request: Request }) => {
+  try {
+    const { email, nombre } = await context.request.json();
+
+    if (!email || !nombre) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Email y nombre son requeridos'
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+
+    if (context.env.DB) {
+      const result = await context.env.DB.prepare(`
+        INSERT INTO customers (email, nombre) VALUES (?, ?)
+      `).bind(email, nombre).run();
+
+      if (result.success) {
+        // Obtener el cliente recién creado
+        const newCustomer = await context.env.DB.prepare(`
+          SELECT * FROM customers WHERE id = ?
+        `).bind(result.meta.last_row_id).first();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: newCustomer
+        }), {
+          status: 201,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+    }
+
+    throw new Error('No se pudo crear el cliente');
+
+  } catch (error) {
+    console.error('❌ Error creando cliente:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Error al crear cliente',
+      message: error instanceof Error ? error.message : 'Error desconocido'
     }), {
       status: 500,
       headers: {
