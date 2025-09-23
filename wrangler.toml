@@ -20,12 +20,12 @@ NODE_ENV = "preview"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "onlinemid-portal-db"
-database_id = "your-database-id"
+database_id = "250c2854-84f9-4851-859b-2f001166932e"
 
 [[env.preview.d1_databases]]
 binding = "DB"
-database_name = "onlinemid-portal-preview-db"
-database_id = "your-preview-d1-database-id"
+database_name = "onlinemid-portal-db"
+database_id = "250c2854-84f9-4851-859b-2f001166932e"
 
 # KV namespace bindings (alternative to D1)
 [[env.production.kv_namespaces]]
